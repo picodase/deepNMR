@@ -1,3 +1,8 @@
 database/*
 cs_tensors.pkl
 pdb_ids.pkl
+conditions.pkl
+elems.pkl
+pHs.pkl
+temps.pkl
+*.sync-conflict*

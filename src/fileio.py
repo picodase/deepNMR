@@ -57,10 +57,7 @@ def collect_dataset(files:list):
         "pH": [],
         "temperature": []
     }
-
     element_sets = []
-
-    pdb_id = None
 
     for file in tqdm(files):
         # Setup the entry
@@ -69,28 +66,27 @@ def collect_dataset(files:list):
             convert_data_types=True
         )
 
-        pdb_id = None
-
         # Get accession code
         tags = ["Accession_code"]
 
-        pdb_id = [db_loop.get_tag(tags) for db_loop in entry.get_loops_by_category("Assembly_db_link")]
-        
-        #print(len(pdb_id))
-        #assert len(pdb_id) == 1 or 0 # should be a single entry in there
-        pdb_ids.append(pdb_id)
+        pdb_id_list = [db_loop.get_tag(tags) for db_loop in entry.get_loops_by_category("Assembly_db_link")]
+            
+        ## Remove non-four-letter codes, e.g. UniProt
+        if len(pdb_id_list) >= 1:
+            pdb_id_list = pdb_id_list[0]
+            for code in pdb_id_list:
+                if len(code) != 4: 
+                    pdb_id_list.remove(code)
 
-        # if the last accession code exists, (just added a PDB code):
-        if len(pdb_id) >= 1 :
-            # Get the next chemical shift tensor
+        # If PDB IDs still remain after removing UniProt codes,
+        if len(pdb_id_list) >= 1:
+            pdb_ids.append(pdb_id_list)
+
+            # Get its chemical shift tensor
             tags = ['Comp_index_ID', 'Comp_ID', 'Atom_ID', 'Atom_type', 'Val', 'Val_err']        
             cs_result_sets = [chemical_shift_loop.get_tag(tags) for chemical_shift_loop in entry.get_loops_by_category("Atom_chem_shift")]
             
             chem_shifts = np.array(cs_result_sets)[0]
-
-            #print(chem_shifts)
-
-            #print(chem_shifts.shape)
 
             df = pd.DataFrame(
                 data=chem_shifts, 
@@ -100,15 +96,13 @@ def collect_dataset(files:list):
             elems = set(df["element"])
 
             chemical_shift_tensors.append(df)
-
             element_sets.append(elems)
 
-            condn = []
 
+            condn = []
             tags = ['Type', 'Val']
             for condition in entry.get_loops_by_category("Sample_condition_variable"):
                 condn.append(condition.get_tag(tags))
-
 
             ### NOTE: Still need to fix:
             # - This code DOES NOT resolve by PDB ID, so it just makes a bunch of lists
@@ -121,26 +115,11 @@ def collect_dataset(files:list):
                 else: 
                     conditions[label] = []
 
-    #tensors = [t.squeeze() for t in chemical_shift_tensors]
-
     pickle_variable(varname="pdb_ids.pkl", variable=pdb_ids)
     pickle_variable(varname="cs_tensors.pkl", variable=chemical_shift_tensors)
     pickle_variable(varname="elems.pkl", variable=element_sets)
     pickle_variable(varname="conditions.pkl", variable=conditions)
 
-    """
-    file = open("pdb_ids.pkl", 'wb')
-    pickle.dump(pdb_ids, file)
-    file.close()
-
-    file = open("cs_tensors.pkl", 'wb')
-    pickle.dump(chemical_shift_tensors, file)
-    file.close() 
-
-    file = open("elems.pkl", 'wb')
-    pickle.dump(element_sets, file)
-    file.close()
-    """
     return
 
 
