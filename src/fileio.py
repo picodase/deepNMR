@@ -75,23 +75,29 @@ def collect_dataset(files:list):
         if len(pdb_id_list) >= 1:
             pdb_id_list = pdb_id_list[0]
             for code in pdb_id_list:
-                if len(code) != 4: 
+                if (code == None) or (len(code) != 4): 
                     pdb_id_list.remove(code)
 
         # If PDB IDs still remain after removing UniProt codes,
         if len(pdb_id_list) >= 1:
-            pdb_ids.append(pdb_id_list)
+            
 
             # Get its chemical shift tensor
             tags = ['Comp_index_ID', 'Comp_ID', 'Atom_ID', 'Atom_type', 'Val', 'Val_err']        
             cs_result_sets = [chemical_shift_loop.get_tag(tags) for chemical_shift_loop in entry.get_loops_by_category("Atom_chem_shift")]
             
+            ## Sometimes a structure has a PDB structure but no deposited chemical shifts
+            if len(cs_result_sets) == 0: 
+                continue
+
             chem_shifts = np.array(cs_result_sets)[0]
 
             df = pd.DataFrame(
                 data=chem_shifts, 
                 columns=["res_idx", "res_id", "atom_type", "element", "chem_shift", "cs_error"]
             )
+
+            pdb_ids.append(pdb_id_list)
 
             elems = set(df["element"])
 

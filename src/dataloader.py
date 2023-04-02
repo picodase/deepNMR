@@ -21,11 +21,18 @@ def split_dataset(dataset_size:int, train_frac:float=0.5):
     rng = default_rng()
     vals = rng.uniform(low=0.0, high=1.0, size=dataset_size)
 
-    train_mask = np.where(vals < train_frac)
-    valid_mask = np.where(vals >= train_frac) and np.where(vals < (train_frac + (1-train_frac)/2))
-    test_mask = np.where(vals >= (train_frac + (1-train_frac)/2))
+    train_mask = np.zeros_like(vals)
+    train_mask[vals < train_frac] = 1
+    train_mask[vals > train_frac] = 0
 
-    return (train_mask, valid_mask, test_mask)
+    val_mask = np.zeros_like(vals)
+    val_mask[vals < (train_frac + (1-train_frac)/2)] = 1
+    val_mask[vals >= (train_frac + (1-train_frac)/2)] = 0
+
+    test_mask = np.zeros_like(vals)
+    test_mask[vals >= (train_frac + (1-train_frac)/2)] = 1
+
+    return (train_mask, val_mask, test_mask)
 
 
 class BMRB(DGLDataset):
@@ -102,24 +109,14 @@ class BMRB(DGLDataset):
         # splitting masks
         
         (train_mask, val_mask, test_mask) = split_dataset(dataset_size=len(_features), train_frac=0.5)
-        #print(train_mask)
+        print(train_mask)
         #print(val_mask)
         #print(test_mask)
         
-        g.ndata['train_mask'] = train_mask[0]
-        g.ndata['val_mask'] = val_mask[0]
-        g.ndata['test_mask'] = test_mask[0]
+        g.ndata['train_mask'] = torch.tensor(train_mask).long()
+        g.ndata['valid_mask'] = torch.tensor(val_mask).long()
+        g.ndata['test_mask'] = torch.tensor(test_mask).long()
         
-        # node labels
-        #g.ndata['label'] = torch.tensor(labels)
-        
-        # node features
-        #g.ndata['feat'] = torch.tensor(_preprocess_features(features),
-        #                               dtype=F.data_type_dict['float32'])
-
-        #self._num_tasks = onehot_labels.shape[1]
-        #self._labels = labels
-
         # reorder graph to obtain better locality.
         self._g = dgl.reorder_graph(g)
         self.labels = self._g.ndata["label"]
